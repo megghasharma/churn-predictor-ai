@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Churn Predictor — Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #0a0e1a;
+    --bg-card: #111827;
+    --bg-card-hover: #1a2234;
+    --border: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent-cyan: #06b6d4;
+    --accent-cyan-dim: rgba(6, 182, 212, 0.15);
+    --accent-rose: #f43f5e;
+    --accent-rose-dim: rgba(244, 63, 94, 0.15);
+    --accent-amber: #f59e0b;
+    --accent-amber-dim: rgba(245, 158, 11, 0.15);
+    --accent-emerald: #10b981;
+    --accent-emerald-dim: rgba(16, 185, 129, 0.15);
+    --accent-violet: #8b5cf6;
+    --accent-violet-dim: rgba(139, 92, 246, 0.15);
+    --gradient-1: linear-gradient(135deg, #06b6d4, #8b5cf6);
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .noise-overlay {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .glow-orb {
+    position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0;
+  }
+  .glow-1 { width: 500px; height: 500px; background: rgba(6,182,212,0.08); top: -100px; right: -100px; }
+  .glow-2 { width: 400px; height: 400px; background: rgba(139,92,246,0.06); bottom: -50px; left: -50px; }
+
+  .dashboard { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+
+  .header { margin-bottom: 40px; }
+  .header-top { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+  .header-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: var(--gradient-1); display: flex; align-items: center; justify-content: center;
+    font-size: 24px; box-shadow: 0 0 30px rgba(6,182,212,0.3);
+  }
+  .header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  .header p { color: var(--text-secondary); font-size: 15px; margin-left: 64px; }
+  .header-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent-cyan-dim); color: var(--accent-cyan);
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    margin-left: 12px; border: 1px solid rgba(6,182,212,0.2);
+  }
+  .header-badge .dot { width: 6px; height: 6px; background: var(--accent-cyan); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .nav-tabs {
+    display: flex; gap: 4px; background: var(--bg-card); border-radius: 10px; padding: 4px;
+    border: 1px solid var(--border); margin-bottom: 32px; width: fit-content;
+  }
+  .nav-tab {
+    padding: 10px 20px; border-radius: 8px; border: none; background: transparent;
+    color: var(--text-muted); font-family: 'DM Sans'; font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .nav-tab:hover { color: var(--text-secondary); }
+  .nav-tab.active { background: rgba(6,182,212,0.1); color: var(--accent-cyan); }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .kpi-card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px 24px; transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .kpi-card:hover { border-color: rgba(6,182,212,0.3); transform: translateY(-2px); box-shadow: var(--shadow); }
+  .kpi-card .kpi-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .kpi-card .kpi-value { font-size: 32px; font-weight: 700; font-family: 'JetBrains Mono'; }
+  .kpi-card .kpi-sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  .kpi-card .kpi-icon { position: absolute; top: 16px; right: 16px; font-size: 20px; opacity: 0.6; }
+
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+  .chart-card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px; transition: all 0.3s;
+  }
+  .chart-card:hover { border-color: rgba(6,182,212,0.2); }
+  .chart-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .chart-card .chart-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
+  .chart-card canvas { width: 100% !important; height: 280px !important; }
+
+  .full-width { grid-column: 1 / -1; }
+
+  .ai-section { margin-top: 32px; }
+  .ai-card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 28px; position: relative; overflow: hidden;
+  }
+  .ai-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--gradient-1);
+  }
+  .ai-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+  .customer-selector {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .customer-btn {
+    padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-secondary); font-family: 'DM Sans';
+    font-size: 13px; cursor: pointer; transition: all 0.2s;
+  }
+  .customer-btn:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+  .customer-btn.active { background: var(--accent-cyan-dim); border-color: var(--accent-cyan); color: var(--accent-cyan); }
+  .customer-btn.high-risk { border-color: rgba(244,63,94,0.3); }
+  .customer-btn.high-risk.active { background: var(--accent-rose-dim); border-color: var(--accent-rose); color: var(--accent-rose); }
+
+  .risk-badge {
+    display: inline-flex; padding: 4px 10px; border-radius: 6px; font-size: 11px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .risk-high { background: var(--accent-rose-dim); color: var(--accent-rose); }
+  .risk-medium { background: var(--accent-amber-dim); color: var(--accent-amber); }
+  .risk-low { background: var(--accent-emerald-dim); color: var(--accent-emerald); }
+
+  .ai-response {
+    background: rgba(6,182,212,0.04); border: 1px solid rgba(6,182,212,0.1);
+    border-radius: 10px; padding: 20px; margin-top: 16px;
+  }
+  .ai-response .risk-summary { font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 16px; }
+  .rec-list { display: flex; flex-direction: column; gap: 12px; }
+  .rec-item {
+    display: flex; gap: 12px; padding: 14px; background: rgba(255,255,255,0.02);
+    border-radius: 8px; border: 1px solid var(--border);
+  }
+  .rec-num {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--accent-cyan-dim);
+    color: var(--accent-cyan); display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0; font-family: 'JetBrains Mono';
+  }
+  .rec-content h4 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .rec-content p { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .rec-impact {
+    font-size: 11px; font-weight: 600; color: var(--accent-emerald);
+    margin-top: 6px; display: inline-block;
+  }
+
+  .retention-lift {
+    display: flex; align-items: center; gap: 12px; margin-top: 16px;
+    padding: 12px 16px; background: var(--accent-emerald-dim); border-radius: 8px;
+    border: 1px solid rgba(16,185,129,0.2);
+  }
+  .retention-lift .lift-value { font-size: 28px; font-weight: 700; color: var(--accent-emerald); font-family: 'JetBrains Mono'; }
+  .retention-lift .lift-label { font-size: 12px; color: var(--accent-emerald); }
+
+  .model-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .model-table th, .model-table td { padding: 12px 16px; text-align: left; font-size: 13px; }
+  .model-table th { color: var(--text-muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+  .model-table td { border-bottom: 1px solid rgba(30,41,59,0.5); color: var(--text-secondary); }
+  .model-table tr:hover td { background: rgba(6,182,212,0.03); }
+  .model-table .best { color: var(--accent-cyan); font-weight: 600; }
+
+  .heatmap-grid {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 12px;
+  }
+  .heatmap-cell {
+    aspect-ratio: 1.4; border-radius: 6px; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono';
+    cursor: default; transition: transform 0.2s;
+  }
+  .heatmap-cell:hover { transform: scale(1.08); }
+  .heatmap-label { font-size: 11px; color: var(--text-muted); text-align: center; padding: 4px; }
+
+  .footer {
+    text-align: center; margin-top: 48px; padding: 24px;
+    border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px;
+  }
+  .footer a { color: var(--accent-cyan); text-decoration: none; }
+
+  @media (max-width: 768px) {
+    .chart-grid { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .heatmap-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="noise-overlay"></div>
+<div class="glow-orb glow-1"></div>
+<div class="glow-orb glow-2"></div>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const KPI_DATA = [
+  { label: 'Total Customers', value: '2,500', sub: 'UK car rental dataset', icon: '👥', color: '#06b6d4' },
+  { label: 'Churn Rate', value: '18.4%', sub: '460 at-risk customers', icon: '📉', color: '#f43f5e' },
+  { label: 'Best ROC-AUC', value: '0.816', sub: 'Logistic Regression', icon: '🎯', color: '#10b981' },
+  { label: 'Retention Lift', value: '+22%', sub: 'AI-recommended avg', icon: '🚀', color: '#8b5cf6' },
+];
+
+const CHURN_BY_AGE = {
+  labels: ['18-25', '26-35', '36-45', '46-55', '56-65', '65+'],
+  churned: [31, 22, 16, 14, 12, 10],
+  retained: [69, 78, 84, 86, 88, 90],
+};
+
+const CHURN_FACTORS = {
+  labels: ['Digital Engagement', 'Pricing Satisfaction', 'Complaints (2+)', 'Non-Loyalty', 'Age (18-25)', 'Contract Length'],
+  values: [0.32, 0.28, 0.18, 0.12, 0.06, 0.04],
+};
+
+const MONTHLY_TREND = {
+  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  churn_rate: [16.2, 17.1, 18.8, 19.5, 20.1, 18.4, 17.8, 16.9, 17.5, 18.2, 19.0, 18.4],
+};
+
+const MODELS = [
+  { name: 'Logistic Regression', roc: 0.816, pr: 0.438, cv: '0.816 ± 0.017', best: true },
+  { name: 'Random Forest', roc: 0.800, pr: 0.466, cv: '0.773 ± 0.011', best: false },
+  { name: 'Gradient Boosting', roc: 0.791, pr: 0.475, cv: '0.750 ± 0.033', best: false },
+];
+
+const REGIONS = [
+  { name: 'London', rate: 22 }, { name: 'Manchester', rate: 19 }, { name: 'Birmingham', rate: 17 },
+  { name: 'Leeds', rate: 15 }, { name: 'Edinburgh', rate: 21 }, { name: 'Bristol', rate: 14 },
+  { name: 'Liverpool', rate: 20 }, { name: 'Glasgow', rate: 18 }, { name: 'Cardiff', rate: 13 },
+  { name: 'Newcastle', rate: 16 }, { name: 'Sheffield', rate: 15 }, { name: 'Nottingham', rate: 17 },
+];
+
+const CUSTOMERS = [
+  {
+    id: 'C-1042', name: 'James W.', age: 22, risk: 'high', prob: 78,
+    engagement: 0.12, pricing: 4, loyalty: false, complaints: 3,
+    summary: 'HIGH churn risk (78%). Primary drivers: young age (22), very low digital engagement (0.12), poor pricing satisfaction (4/10). 3 complaints in 6 months, no loyalty membership. Immediate intervention critical.',
+    recs: [
+      { action: 'Offer student/young driver discount with gamified loyalty tiers', rationale: '18-25 age group shows 25% higher churn driven by price sensitivity', impact: 'High' },
+      { action: 'Assign dedicated account manager for complaint resolution', rationale: '3 complaints in 6 months indicates unresolved service issues', impact: 'High' },
+      { action: 'Push mobile app engagement with reward points per booking', rationale: 'Digital engagement score of 0.12 is critically low', impact: 'Medium' },
+    ],
+    lift: 22
+  },
+  {
+    id: 'C-2187', name: 'Sarah K.', age: 34, risk: 'medium', prob: 45,
+    engagement: 0.38, pricing: 6, loyalty: true, complaints: 1,
+    summary: 'MODERATE churn risk (45%). Loyalty membership provides some retention, but below-average digital engagement (0.38) and mediocre pricing satisfaction (6/10) suggest growing disengagement.',
+    recs: [
+      { action: 'Personalised pricing offer based on booking history', rationale: 'Pricing satisfaction at 6/10 indicates value perception gap', impact: 'Medium' },
+      { action: 'Loyalty tier upgrade with exclusive vehicle access', rationale: 'Existing member — tier advancement reinforces commitment', impact: 'Medium' },
+      { action: 'Monthly engagement email with usage insights and savings report', rationale: 'Digital engagement trending down', impact: 'Low' },
+    ],
+    lift: 14
+  },
+  {
+    id: 'C-0893', name: 'Robert M.', age: 51, risk: 'low', prob: 12,
+    engagement: 0.82, pricing: 8, loyalty: true, complaints: 0,
+    summary: 'LOW churn risk (12%). Strong digital engagement (0.82), high pricing satisfaction (8/10), active loyalty member with zero complaints. Model customer — focus on upselling.',
+    recs: [
+      { action: 'Premium vehicle upgrade offer for next booking', rationale: 'High satisfaction and engagement make upselling likely to succeed', impact: 'Medium' },
+      { action: 'Referral programme invitation with mutual rewards', rationale: 'Satisfied customers are 3x more likely to refer', impact: 'High' },
+      { action: 'VIP early access to new vehicle models', rationale: 'Reinforce exclusivity and loyalty status', impact: 'Low' },
+    ],
+    lift: 5
+  },
+];
+
+const ENGAGEMENT_SCATTER = Array.from({ length: 60 }, (_, i) => ({
+  x: Math.random() * 1,
+  y: Math.random() * 100,
+  churned: Math.random() < (1 - Math.random() * 0.8) * 0.3,
+}));
+
+function ChartCanvas({ id, config, height = 280 }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+  useEffect(() => {
+    if (chartRef.current) chartRef.current.destroy();
+    const ctx = canvasRef.current.getContext('2d');
+    chartRef.current = new Chart(ctx, config);
+    return () => { if (chartRef.current) chartRef.current.destroy(); };
+  }, [config]);
+  return React.createElement('canvas', { ref: canvasRef, style: { width: '100%', height: height + 'px' } });
+}
+
+const TABS = ['Overview', 'Demographics', 'AI Predictions', 'Model Performance'];
+
+function App() {
+  const [tab, setTab] = useState(0);
+  const [selectedCustomer, setSelectedCustomer] = useState(0);
+  const customer = CUSTOMERS[selectedCustomer];
+  return React.createElement('div', { className: 'dashboard' },
+    React.createElement('div', { className: 'header' },
+      React.createElement('div', { className: 'header-top' },
+        React.createElement('div', { className: 'header-icon' }, '🔮'),
+        React.createElement('h1', null, 'AI Churn Predictor',
+          React.createElement('span', { className: 'header-badge' },
+            React.createElement('span', { className: 'dot' }), ' Live Dashboard'
+          )
+        )
+      ),
+      React.createElement('p', null, 'ML pipeline (ROC-AUC 0.816) + Claude AI retention strategies — UK car rental, 2,500 customers')
+    ),
+    React.createElement('div', { className: 'nav-tabs' },
+      TABS.map(function(t, i) {
+        return React.createElement('button', { key: t, className: 'nav-tab ' + (tab === i ? 'active' : ''), onClick: function() { setTab(i); } }, t);
+      })
+    ),
+    tab === 0 && React.createElement(OverviewTab, null),
+    tab === 1 && React.createElement(DemographicsTab, null),
+    tab === 2 && React.createElement(AIPredictionsTab, { customer: customer, selectedCustomer: selectedCustomer, setSelectedCustomer: setSelectedCustomer }),
+    tab === 3 && React.createElement(ModelTab, null),
+    React.createElement('div', { className: 'footer' },
+      'Built by ', React.createElement('a', { href: 'https://github.com/megghasharma', target: '_blank' }, 'Megha Sharma'),
+      ' — MSc Business Analytics, Swansea University · Powered by Python, scikit-learn & Claude API'
+    )
+  );
+}
+
+function OverviewTab() {
+  const trendConfig = { type: 'line', data: { labels: MONTHLY_TREND.labels, datasets: [{ label: 'Churn Rate %', data: MONTHLY_TREND.churn_rate, borderColor: '#f43f5e', backgroundColor: 'rgba(244,63,94,0.08)', fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#f43f5e', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(30,41,59,0.5)' }, ticks: { color: '#64748b' } }, y: { grid: { color: 'rgba(30,41,59,0.5)' }, ticks: { color: '#64748b', callback: function(v) { return v + '%'; } }, min: 14, max: 22 } } } };
+  const factorsConfig = { type: 'bar', data: { labels: CHURN_FACTORS.labels, datasets: [{ label: 'Feature Importance', data: CHURN_FACTORS.values, backgroundColor: ['#06b6d4', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#64748b'], borderRadius: 6, barThickness: 32 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(30,41,59,0.5)' }, ticks: { color: '#64748b' } }, y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 12 } } } } } };
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', { className: 'kpi-grid' }, KPI_DATA.map(function(k, i) { return React.createElement('div', { className: 'kpi-card', key: i }, React.createElement('div', { className: 'kpi-label' }, k.label), React.createElement('div', { className: 'kpi-value', style: { color: k.color } }, k.value), React.createElement('div', { className: 'kpi-sub' }, k.sub), React.createElement('div', { className: 'kpi-icon' }, k.icon)); })),
+    React.createElement('div', { className: 'chart-grid' },
+      React.createElement('div', { className: 'chart-card' }, React.createElement('h3', null, 'Monthly Churn Trend'), React.createElement('div', { className: 'chart-sub' }, '12-month rolling churn rate (%)'), React.createElement(ChartCanvas, { id: 'trend', config: trendConfig })),
+      React.createElement('div', { className: 'chart-card' }, React.createElement('h3', null, 'Top Churn Drivers'), React.createElement('div', { className: 'chart-sub' }, 'Feature importance from ML model'), React.createElement(ChartCanvas, { id: 'factors', config: factorsConfig }))
+    )
+  );
+}
+
+function DemographicsTab() {
+  const ageConfig = { type: 'bar', data: { labels: CHURN_BY_AGE.labels, datasets: [{ label: 'Churned %', data: CHURN_BY_AGE.churned, backgroundColor: '#f43f5e', borderRadius: 6, barThickness: 28 }, { label: 'Retained %', data: CHURN_BY_AGE.retained, backgroundColor: '#10b981', borderRadius: 6, barThickness: 28 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8' } }, y: { stacked: true, grid: { color: 'rgba(30,41,59,0.5)' }, ticks: { color: '#64748b', callback: function(v) { return v + '%'; } } } } } };
+  function getHeatColor(rate) { if (rate >= 20) return 'rgba(244,63,94,0.7)'; if (rate >= 17) return 'rgba(244,63,94,0.4)'; if (rate >= 15) return 'rgba(245,158,11,0.4)'; return 'rgba(16,185,129,0.3)'; }
+  return React.createElement('div', { className: 'chart-grid' },
+    React.createElement('div', { className: 'chart-card' }, React.createElement('h3', null, 'Churn Rate by Age Group'), React.createElement('div', { className: 'chart-sub' }, '18-25 year-olds show ~25% higher churn'), React.createElement(ChartCanvas, { id: 'age', config: ageConfig })),
+    React.createElement('div', { className: 'chart-card' }, React.createElement('h3', null, 'Regional Churn Heatmap'), React.createElement('div', { className: 'chart-sub' }, 'Churn rate (%) by UK region'), React.createElement('div', { className: 'heatmap-grid' }, REGIONS.map(function(r, i) { return React.createElement('div', { key: i }, React.createElement('div', { className: 'heatmap-cell', style: { background: getHeatColor(r.rate), color: '#fff' } }, r.rate + '%'), React.createElement('div', { className: 'heatmap-label' }, r.name)); })))
+  );
+}
+
+function AIPredictionsTab(props) {
+  var customer = props.customer, selectedCustomer = props.selectedCustomer, setSelectedCustomer = props.setSelectedCustomer;
+  return React.createElement('div', { className: 'ai-section' },
+    React.createElement('div', { className: 'ai-card' },
+      React.createElement('h3', null, '🤖 Claude AI — Retention Strategy Generator'),
+      React.createElement('div', { className: 'customer-selector' }, CUSTOMERS.map(function(c, i) {
+        return React.createElement('button', { key: i, className: 'customer-btn ' + (c.risk === 'high' ? 'high-risk ' : '') + (selectedCustomer === i ? 'active' : ''), onClick: function() { setSelectedCustomer(i); } }, c.id + ' · ' + c.name + ' · ' + c.risk + ' (' + c.prob + '%)');
+      })),
+      React.createElement('div', { className: 'ai-response' },
+        React.createElement('div', { style: { fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 600, marginBottom: 8, fontFamily: 'JetBrains Mono' } }, '✦ CLAUDE AI ANALYSIS'),
+        React.createElement('div', { className: 'risk-summary' }, customer.summary),
+        React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10 } }, 'RECOMMENDED ACTIONS'),
+        React.createElement('div', { className: 'rec-list' }, customer.recs.map(function(r, i) {
+          return React.createElement('div', { className: 'rec-item', key: i },
+            React.createElement('div', { className: 'rec-num' }, i + 1),
+            React.createElement('div', { className: 'rec-content' },
+              React.createElement('h4', null, r.action),
+              React.createElement('p', null, r.rationale),
+              React.createElement('span', { className: 'rec-impact' }, 'Expected Impact: ' + r.impact)
+            )
+          );
+        })),
+        React.createElement('div', { className: 'retention-lift' },
+          React.createElement('div', { className: 'lift-value' }, '+' + customer.lift + '%'),
+          React.createElement('div', { className: 'lift-label' }, 'Estimated Retention Lift')
+        )
+      )
+    )
+  );
+}
+
+function ModelTab() {
+  const rocConfig = { type: 'line', data: { labels: Array.from({ length: 11 }, function(_, i) { return (i / 10).toFixed(1); }), datasets: [{ label: 'Logistic Regression (0.816)', data: [0, 0.35, 0.55, 0.68, 0.76, 0.82, 0.87, 0.91, 0.95, 0.98, 1.0], borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,0.1)', fill: true, tension: 0.4, borderWidth: 2 }, { label: 'Random Forest (0.800)', data: [0, 0.30, 0.50, 0.64, 0.73, 0.79, 0.84, 0.89, 0.93, 0.97, 1.0], borderColor: '#8b5cf6', fill: false, tension: 0.4, borderWidth: 2, borderDash: [5, 5] }, { label: 'Random (0.5)', data: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], borderColor: '#475569', fill: false, borderWidth: 1, borderDash: [8, 4] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } }, scales: { x: { title: { display: true, text: 'False Positive Rate', color: '#64748b' }, grid: { color: 'rgba(30,41,59,0.5)' }, ticks: { color: '#64748b' } }, y: { title: { display: true, text: 'True Positive Rate', color: '#64748b' }, grid: { color: 'rgba(30,41,59,0.5)' }, ticks: { color: '#64748b' } } } } };
+  return React.createElement('div', { className: 'chart-grid' },
+    React.createElement('div', { className: 'chart-card' }, React.createElement('h3', null, 'ROC Curves — Model Comparison'), React.createElement('div', { className: 'chart-sub' }, 'Area Under Curve for all 3 classifiers'), React.createElement(ChartCanvas, { id: 'roc', config: rocConfig })),
+    React.createElement('div', { className: 'chart-card' }, React.createElement('h3', null, 'Model Performance Summary'), React.createElement('div', { className: 'chart-sub' }, 'Cross-validated metrics'), React.createElement('table', { className: 'model-table' }, React.createElement('thead', null, React.createElement('tr', null, React.createElement('th', null, 'Model'), React.createElement('th', null, 'ROC-AUC'), React.createElement('th', null, 'PR-AUC'), React.createElement('th', null, 'CV Score'))), React.createElement('tbody', null, MODELS.map(function(m, i) { return React.createElement('tr', { key: i }, React.createElement('td', { className: m.best ? 'best' : '' }, m.name + (m.best ? ' ★' : '')), React.createElement('td', { className: m.best ? 'best' : '' }, m.roc), React.createElement('td', null, m.pr), React.createElement('td', { style: { fontFamily: 'JetBrains Mono', fontSize: 12 } }, m.cv)); }))))
+  );
+}
+
+ReactDOM.render(React.createElement(App), document.getElementById('root'));
+</script>
+</body>
+</html>
