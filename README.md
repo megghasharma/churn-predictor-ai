@@ -1,5 +1,8 @@
 # 🔮 AI-Powered Customer Churn Predictor
 
+> 🌐 **[View Live Interactive Dashboard](https://megghasharma.github.io/churn-predictor-ai/)** — Explore the churn analysis, demographics, AI predictions & model performance
+
+
 > Predicting and preventing customer churn using Machine Learning + Claude AI for automated retention strategy generation.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
